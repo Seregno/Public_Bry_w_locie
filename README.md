@@ -1,7 +1,7 @@
 # Public_Bry_w_locie
 
 Welcome to the official repository for the **Bobry w locie** drone!  
-Here, you'll find the drone's source code in `drone.rs` and a `tests` folder containing scripts to verify the correct functioning of the *bober drone*.
+Here, you'll find the drone's source code in `src/drone.rs` and a `tests` folder containing scripts to verify the correct functioning of the *bober drone*.
 
 ---
 
