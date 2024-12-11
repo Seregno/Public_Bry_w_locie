@@ -1,9 +1,7 @@
 # Public_Bry_w_locie
 This is the official repo for the drone of the group Bobry w locie. 
 
-We are currently working to finish the latest test that require our drone to perfectly work on a real topology. 
-
-The full functioning drone will be pushed here by the end of the week
+You will find the code of our drone inside drone.rs togheter with a folder named "tests", which contains scripts used to check the correct functioning of the bober drone.
 
 Link for the customer support telegram group: https://t.me/+HVC865P-e3ZmZDJk
 
