@@ -6,6 +6,8 @@ use wg_2024::controller::{DroneCommand, DroneEvent};
 use wg_2024::drone::Drone;
 use wg_2024::network::NodeId;
 use wg_2024::packet::{FloodRequest, Nack, NackType, NodeType, Packet, PacketType};
+use log::{info, debug, warn, error};
+use env_logger;
 pub struct BoberDrone {
     id: NodeId,
     controller_send: Sender<DroneEvent>,
@@ -28,11 +30,11 @@ impl Drone for BoberDrone {
     ) -> Self {
         let mut pdr = pdr;
         if pdr < 0.0 {
-            println!("Pdr lower than 0.0 (value: {}). Setting it to  0.0", pdr);
+            warn!("Pdr lower than 0.0 (value: {}). Setting it to  0.0", pdr);
             pdr = 0.0;
         }
         if pdr > 1.0 {
-            println!("Pdr greater than 1.0 (value: {}). Setting it to  1.0", pdr);
+            warn!("Pdr greater than 1.0 (value: {}). Setting it to  1.0", pdr);
             pdr = 1.0;
         }
         Self {
@@ -55,7 +57,7 @@ impl Drone for BoberDrone {
                     }
                     if let Ok(command) = command {
                         if let DroneCommand::Crash = command {
-                            println!("drone {} crashed", self.id);
+                            error!("drone {} crashed", self.id);
                             break;
                         }
                         self.handle_command(command);
@@ -79,16 +81,16 @@ impl BoberDrone {
     fn set_pdr(&mut self, pdr: f32) {
         let mut pdr = pdr;
         if pdr < 0.0 {
-            println!("Pdr lower than 0.0 (value: {}). Setting it to  0.0", pdr);
+            warn!("Pdr lower than 0.0 (value: {}). Setting it to  0.0", pdr);
             pdr = 0.0;
         }
         if pdr > 1.0 {
-            println!("Pdr greater than 1.0 (value: {}). Setting it to  1.0", pdr);
+            warn!("Pdr greater than 1.0 (value: {}). Setting it to  1.0", pdr);
             pdr = 1.0;
         } else {
             let previous_pdr = self.pdr;
             self.pdr = pdr;
-            println!("Pdr has been changed from {} to {}", previous_pdr, self.pdr);
+            info!("Pdr has been changed from {} to {}", previous_pdr, self.pdr);
         }
     }
     fn handle_packet_while_crashing(&mut self, packet: Packet) {
@@ -124,36 +126,36 @@ impl BoberDrone {
     fn handle_command(&mut self, command: DroneCommand) {
         match command {
             DroneCommand::AddSender(node_id, sender) => {
-                println!("Adding Sender: {} from Drone: {}", node_id, self.id);
+                info!("Adding Sender: {} from Drone: {}", node_id, self.id);
                 self.add_channel(node_id, sender);
             }
             DroneCommand::SetPacketDropRate(pdr) => {
                 self.set_pdr(pdr);
             }
             DroneCommand::Crash => {
-                print!("Crashing Drone: {}", self.id);
+                warn!("Crashing Drone: {}", self.id);
                 self.is_crashing = true;
             }
             DroneCommand::RemoveSender(node_id) => {
-                println!("Remove Sender: {} from Drone: {}", node_id, self.id);
+                info!("Remove Sender: {} from Drone: {}", node_id, self.id);
                 self.remove_channel(&node_id);
             }
         }
     }
-
+    //Here we are using is_none() rather than is_some() in order to improve the log and avoid misleading messages
     fn add_channel(&mut self, id: NodeId, sender: Sender<Packet>) {
-        if self.packet_send.insert(id, sender).is_some() {
-            println!("Channel has been correctly added to the drone.");
+        if self.packet_send.insert(id, sender).is_none() {
+            info!("Added new channel to the drone: {}", id);
         } else {
-            println!("An error occurred while trying to add the channel to the drone.");
+            debug!("Replaced existing channel for node: {}", id);
         }
     }
 
     fn remove_channel(&mut self, id: &NodeId) {
-        if self.packet_send.remove(id).is_some() {
-            println!("Channel has been correctly removed from the drone.");
+        if self.packet_send.remove(id).is_none() {
+            debug!("Tried to remove a non-existing channel: {}", id);
         } else {
-            println!("An error occurred while trying to remove the channel from the drone.");
+            info!("Channel has been correctly removed from the drone.");
         }
     }
 
@@ -210,17 +212,17 @@ impl BoberDrone {
         }
         else
         {
-            println!("Error: no channel available for node {}",next_hop);
+            error!("Packet forwarding failed: no channel available for node {}", next_hop);
         }
     }
 
     fn notify_sc_sent_packet(&mut self, packet: &Packet) {
         let res = self.controller_send.send(DroneEvent::PacketSent(packet.clone())).ok();
         if res.is_none() {
-            println!("WARNING: No connection to the Simulation Controller for Drone: {}", self.id);
+            error!("No connection to Simulation Controller! Drone {} cannot notify packet events.", self.id);
         }
         else{
-            println!("The message has been correctly sent to the simulation controller");
+            debug!("The message has been correctly sent to the simulation controller");
         }
     }
     //Manages packets sending following the protocol
@@ -294,7 +296,7 @@ impl BoberDrone {
                 if flood_request.path_trace.last().is_some(){
                     sender_id = flood_request.path_trace.last().unwrap().0;
                 } else {
-                    println!("Empty PathTrace found in drone: {}", self.id);
+                    error!("Empty PathTrace found in drone: {}", self.id);
                     return
                 };
                 let flood_identifier = (flood_request.flood_id, flood_request.initiator_id);
@@ -336,8 +338,8 @@ impl BoberDrone {
                     }
                 }
             }
-            _ => println!(
-                "Drone {}, expected packet of type FloodRequest found else instead",
+            _ => debug!(
+                "Drone {} received unexpected packet type instead of FloodRequest",
                 self.id
             ),
         }
