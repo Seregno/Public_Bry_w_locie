@@ -195,10 +195,10 @@ impl BoberDrone {
         //Avoids increasing the hop_index if the packet has been created in the drone
         let next_hop = new_packet.routing_header.next_hop().unwrap();
         new_packet.routing_header.increase_hop_index();
-        let communication_channel = self.packet_send.get(&next_hop).unwrap();
-        communication_channel.send(new_packet.clone()).unwrap();
-        match packet.pack_type {
-            PacketType::Nack(_) => {
+        if let Some(communication_channel) = self.packet_send.get(&next_hop){
+            communication_channel.send(new_packet.clone()).unwrap();
+            match packet.pack_type {
+                PacketType::Nack(_) => {
                 if !generated_in_node{
                     self.notify_sc_sent_packet(&new_packet);
                 }
@@ -206,6 +206,11 @@ impl BoberDrone {
             _ => {
                 self.notify_sc_sent_packet(&new_packet);
             }
+        }
+        }
+        else
+        {
+            println!("Error: no channel available for node {}",next_hop);
         }
     }
 
@@ -269,6 +274,8 @@ impl BoberDrone {
 
     fn send_flood_response(&mut self, packet: &Packet, flood_request: &FloodRequest) {
         let mut flood_request = flood_request.clone();
+        //Increment path trace before the generation of the flood response 
+        flood_request.path_trace.push((self.id, NodeType::Drone));
         if flood_request.path_trace.len() > 1 &&
             flood_request.path_trace.last().unwrap().0 == flood_request.path_trace.iter().rev().nth(1).unwrap().0 &&
             flood_request.path_trace.last().unwrap().0 == self.id{
